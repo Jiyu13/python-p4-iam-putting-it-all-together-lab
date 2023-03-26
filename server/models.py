@@ -49,6 +49,9 @@ class User(db.Model, SerializerMixin):
 
 class Recipe(db.Model, SerializerMixin):
     __tablename__ = 'recipes'
+    __table_args__ = (
+        db.CheckConstraint('length(instructions) >= 50'),
+    )
     
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String, nullable=False)
@@ -57,16 +60,12 @@ class Recipe(db.Model, SerializerMixin):
 
     # a recipe belongs to a user.
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-
-    # @validates('title')
-    # def validate_title(self, key, title):
-    #     if not title:
-    #         raise ValueError("title must be present.")
     
-    @validates("instructions")
-    def validate_instructions(self, key, instructions):
-        if len(instructions) < 50:
-            raise ValueError("instructions must be present and at least 50 characters long.")
+    # validates decorator is for complicated python level check????
+    # @validates("instructions")
+    # def validate_instructions(self, key, instructions):
+    #     if len(instructions) < 50:
+    #         raise ValueError("instructions must be present and at least 50 characters long.")
 
 
     def __repr__(self):

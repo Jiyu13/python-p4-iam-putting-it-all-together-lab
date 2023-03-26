@@ -9,11 +9,17 @@ from models import User, Recipe
 
 class Signup(Resource):
     def post(self):
-        # Create a new user with the username in signup form
-        username = request.get_json()["username"]
-        password = request.get_json()["password"]
-        image_url = request.get_json()["image_url"]
-        bio = request.get_json()["bio"]
+        # Create a new user with the info filled in signup form
+        
+        # username = request.get_json()["username"]
+        # password = request.get_json()["password"]
+        # image_url = request.get_json()["image_url"]
+        # bio = request.get_json()["bio"]
+
+        username = request.get_json().get("username")
+        password = request.get_json().get("password")
+        image_url = request.get_json().get("image_url")
+        bio = request.get_json().get("bio")
 
         if username and password:
             new_user = User(
@@ -46,18 +52,18 @@ class CheckSession(Resource):
             user = User.query.filter_by(id=session["user_id"]).first()
             return user.to_dict(), 200
         # not logged in: Return a JSON response + 401 (Unauthorized).
-        return {"error": {"401: Unauthorized user"}}, 401
+        return {"error": "401: Unauthorized user"}, 401
 
 class Login(Resource):
     def post(self):
         username = request.get_json()["username"]
         password = request.get_json()["password"]
         user = User.query.filter_by(username=username).first()
-        if user.authenticate(password):
-            session["user_id"] = user.id
-            return user.to_dict(), 200
+        if user:
+            if user.authenticate(password):
+                session["user_id"] = user.id
+                return user.to_dict(), 200
         return {"error": "401: Unauthorized"}, 401
-
 
 class Logout(Resource):
     def delete(self):
@@ -76,9 +82,10 @@ class RecipeIndex(Resource):
         # Return a JSON response with an array of all recipes with their title, instructions, and minutes to complete data 
         # along with a nested user object; and an HTTP status code of 200 (Success).
         if session.get("user_id"):
-            recipes = Recipe.query.all()
-            recipes_dict = [recipe.to_dict(rules=("users")) for recipe in recipes]
-            return make_response(recipes_dict, 200)
+            # returns a list of recipes associated with the logged in user and a 200 status code
+            user = User.query.filter(User.id==session['user_id']).first()
+            user_recipes_dict = [recipe.to_dict() for recipe in user.recipes]
+            return user_recipes_dict, 200
         return {"error": "401: Unauthorized"}, 401
     
     # create new recipes
@@ -88,16 +95,19 @@ class RecipeIndex(Resource):
             instructions = request.get_json()["instructions"]
             minutes_to_complete = request.get_json()["minutes_to_complete"]
             # Save a new recipe to the database if it is valid. along with a nested user object
-            if title and instructions and minutes_to_complete:
+            try:
                 new_recipe = Recipe(
-                    title=title, instructions=instructions, minutes_to_complete=minutes_to_complete
+                    title=title, 
+                    instructions=instructions, 
+                    minutes_to_complete=minutes_to_complete,
+                    user_id=session["user_id"]
                 )
                 db.session.add(new_recipe)
                 db.session.commit()
-                session["user_id"] = new_recipe.id
-                return new_recipe.to_dict("users"), 201
-            # If the recipe is not valid
-            return {"error": "422: Unprocessable Entity"}, 422
+                return new_recipe.to_dict(), 201
+            except IntegrityError:
+                # If the recipe is not valid
+                return {"error": "422: Unprocessable Entity"}, 422
         # If the user is not logged in
         return {"error", "401: Unauthorized"}, 401
 
